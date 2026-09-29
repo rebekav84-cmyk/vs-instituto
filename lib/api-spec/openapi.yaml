@@ -1,0 +1,822 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: API de agendamento do VS Instituto de Beleza
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+  - name: booking
+  - name: staff
+  - name: admin
+  - name: auth
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /services:
+    get:
+      operationId: listServices
+      tags: [booking]
+      summary: List active services
+      responses:
+        "200":
+          description: Services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+  /professionals:
+    get:
+      operationId: listProfessionals
+      tags: [booking]
+      summary: List professionals
+      responses:
+        "200":
+          description: Professionals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Professional"
+  /availability:
+    get:
+      operationId: getAvailability
+      tags: [booking]
+      summary: List available slots
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+        - $ref: "#/components/parameters/ProfessionalId"
+        - $ref: "#/components/parameters/Date"
+      responses:
+        "200":
+          description: Available slots for a date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+  /appointments:
+    post:
+      operationId: createAppointment
+      tags: [booking]
+      summary: Create a booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentInput"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "409":
+          description: Slot already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /appointments/{code}:
+    get:
+      operationId: getAppointment
+      tags: [booking]
+      summary: Find a booking by code
+      parameters:
+        - $ref: "#/components/parameters/BookingCode"
+      responses:
+        "200":
+          description: Booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: rescheduleAppointment
+      tags: [booking]
+      summary: Reschedule a booking
+      parameters:
+        - $ref: "#/components/parameters/BookingCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleInput"
+      responses:
+        "200":
+          description: Rescheduled booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+        "409":
+          description: New slot unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: cancelAppointment
+      tags: [booking]
+      summary: Cancel a booking
+      parameters:
+        - $ref: "#/components/parameters/BookingCode"
+      responses:
+        "200":
+          description: Cancelled booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+  /staff/me:
+    get:
+      operationId: getStaffMe
+      tags: [staff]
+      summary: Current staff member
+      security: [{ session: [] }]
+      responses:
+        "200":
+          description: Staff profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffUser"
+  /staff/agenda:
+    get:
+      operationId: getStaffAgenda
+      tags: [staff]
+      summary: Agenda for a professional and date
+      security: [{ session: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Date"
+        - name: professionalId
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Agenda
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgendaItem"
+  /staff/appointments/{id}/status:
+    patch:
+      operationId: updateAppointmentStatus
+      tags: [staff]
+      summary: Update appointment status
+      security: [{ session: [] }]
+      parameters:
+        - $ref: "#/components/parameters/AppointmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentStatusInput"
+      responses:
+        "200":
+          description: Updated appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+  /staff/schedule:
+    get:
+      operationId: getScheduleSettings
+      tags: [staff]
+      summary: Read schedule settings
+      security: [{ session: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Date"
+        - name: professionalId
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Schedule settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSettings"
+    patch:
+      operationId: updateSchedule
+      tags: [staff]
+      summary: Open, close or override a schedule
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleUpdate"
+      responses:
+        "200":
+          description: Schedule settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSettings"
+  /staff/slots:
+    patch:
+      operationId: updateSlot
+      tags: [staff]
+      summary: Block or unblock a slot
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlotUpdate"
+      responses:
+        "200":
+          description: Slot update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Slot"
+  /admin/summary:
+    get:
+      operationId: getAdminSummary
+      tags: [admin]
+      summary: Financial and operational summary
+      security: [{ session: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Date"
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSummary"
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [booking]
+      summary: Public salon information
+      responses:
+        "200":
+          description: Salon settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalonSettings"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Staff login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the staff session
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change own password
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChangeInput"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /admin/settings:
+    put:
+      operationId: updateSettings
+      tags: [admin]
+      summary: Update salon information
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalonSettings"
+      responses:
+        "200":
+          description: Saved settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalonSettings"
+  /admin/services:
+    get:
+      operationId: listAdminServices
+      tags: [admin]
+      summary: All services including inactive
+      security: [{ session: [] }]
+      responses:
+        "200":
+          description: Services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminService"
+    post:
+      operationId: createService
+      tags: [admin]
+      summary: Create a service
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminService"
+  /admin/services/{id}:
+    patch:
+      operationId: updateService
+      tags: [admin]
+      summary: Update a service
+      security: [{ session: [] }]
+      parameters:
+        - $ref: "#/components/parameters/AppointmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminService"
+  /admin/professionals:
+    get:
+      operationId: listAdminProfessionals
+      tags: [admin]
+      summary: All professionals including inactive
+      security: [{ session: [] }]
+      responses:
+        "200":
+          description: Professionals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminProfessional"
+    post:
+      operationId: createProfessional
+      tags: [admin]
+      summary: Create a professional
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfessionalInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProfessional"
+  /admin/professionals/{id}:
+    patch:
+      operationId: updateProfessional
+      tags: [admin]
+      summary: Update a professional
+      security: [{ session: [] }]
+      parameters:
+        - $ref: "#/components/parameters/AppointmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfessionalInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProfessional"
+  /admin/accounts:
+    get:
+      operationId: listAccounts
+      tags: [admin]
+      summary: Staff login accounts
+      security: [{ session: [] }]
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffAccount"
+    post:
+      operationId: createAccount
+      tags: [admin]
+      summary: Create a staff login
+      security: [{ session: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffAccountCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccount"
+  /admin/accounts/{id}:
+    patch:
+      operationId: updateAccount
+      tags: [admin]
+      summary: Update a staff login
+      security: [{ session: [] }]
+      parameters:
+        - $ref: "#/components/parameters/AppointmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffAccountUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccount"
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: vs_session
+  parameters:
+    ServiceId:
+      name: serviceId
+      in: query
+      required: true
+      schema: { type: integer }
+    ProfessionalId:
+      name: professionalId
+      in: query
+      required: true
+      schema: { type: integer }
+    Date:
+      name: date
+      in: query
+      required: true
+      schema: { type: string, format: date }
+    BookingCode:
+      name: code
+      in: path
+      required: true
+      schema: { type: string, minLength: 6 }
+    AppointmentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string }
+      required: [status]
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+    Service:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        price: { type: number }
+        durationMinutes: { type: integer }
+      required: [id, name, price, durationMinutes]
+    Professional:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        initials: { type: string }
+        startsAt: { type: string }
+        endsAt: { type: string }
+        weekdays:
+          type: array
+          items: { type: integer }
+      required: [id, name, initials, startsAt, endsAt, weekdays]
+    Availability:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        professional:
+          $ref: "#/components/schemas/Professional"
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/Slot"
+      required: [date, professional, slots]
+    Slot:
+      type: object
+      properties:
+        time: { type: string }
+        available: { type: boolean }
+        reason: { type: ["string", "null"] }
+      required: [time, available, reason]
+    AppointmentInput:
+      type: object
+      properties:
+        serviceId: { type: integer }
+        professionalId: { type: integer }
+        date: { type: string, format: date }
+        time: { type: string }
+        clientName: { type: string, minLength: 2 }
+        whatsapp: { type: string, minLength: 8 }
+      required: [serviceId, professionalId, date, time, clientName, whatsapp]
+    RescheduleInput:
+      type: object
+      properties:
+        professionalId: { type: integer }
+        date: { type: string, format: date }
+        time: { type: string }
+      required: [professionalId, date, time]
+    Appointment:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        clientName: { type: string }
+        whatsapp: { type: string }
+        date: { type: string, format: date }
+        time: { type: string }
+        status:
+          type: string
+          enum: [scheduled, arrived, completed, cancelled, no_show]
+        professional:
+          $ref: "#/components/schemas/Professional"
+        service:
+          $ref: "#/components/schemas/Service"
+        expectedAmount: { type: number }
+        receivedAmount: { type: ["number", "null"] }
+        salonShare: { type: ["number", "null"] }
+        professionalShare: { type: ["number", "null"] }
+      required: [id, code, clientName, whatsapp, date, time, status, professional, service, expectedAmount, receivedAmount, salonShare, professionalShare]
+    StaffUser:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [professional, admin]
+        professional:
+          oneOf:
+            - $ref: "#/components/schemas/Professional"
+            - type: "null"
+        displayName: { type: string }
+        email: { type: string }
+      required: [role, professional, displayName, email]
+    AgendaItem:
+      allOf:
+        - $ref: "#/components/schemas/Appointment"
+    AppointmentStatusInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [scheduled, arrived, completed, cancelled, no_show]
+        receivedAmount: { type: ["number", "null"] }
+      required: [status]
+    ScheduleSettings:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        professionalId: { type: integer }
+        open: { type: boolean }
+        startsAt: { type: string }
+        endsAt: { type: string }
+        note: { type: ["string", "null"] }
+        blockedTimes:
+          type: array
+          items: { type: string }
+      required: [date, professionalId, open, startsAt, endsAt, note, blockedTimes]
+    ScheduleUpdate:
+      type: object
+      properties:
+        professionalId: { type: integer }
+        date: { type: string, format: date }
+        open: { type: boolean }
+        startsAt: { type: string }
+        endsAt: { type: string }
+        note: { type: ["string", "null"] }
+      required: [professionalId, date, open]
+    SlotUpdate:
+      type: object
+      properties:
+        professionalId: { type: integer }
+        date: { type: string, format: date }
+        time: { type: string }
+        blocked: { type: boolean }
+      required: [professionalId, date, time, blocked]
+    ProfessionalFinance:
+      type: object
+      properties:
+        professional: { $ref: "#/components/schemas/Professional" }
+        completed: { type: integer }
+        totalReceived: { type: number }
+        salonShare: { type: number }
+        professionalShare: { type: number }
+      required: [professional, completed, totalReceived, salonShare, professionalShare]
+    AdminSummary:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        appointments: { type: integer }
+        completed: { type: integer }
+        cancelled: { type: integer }
+        noShows: { type: integer }
+        totalReceived: { type: number }
+        salonShare: { type: number }
+        professionalShare: { type: number }
+        byProfessional:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfessionalFinance"
+      required: [date, appointments, completed, cancelled, noShows, totalReceived, salonShare, professionalShare, byProfessional]
+    LoginInput:
+      type: object
+      properties:
+        email: { type: string }
+        password: { type: string }
+      required: [email, password]
+    PasswordChangeInput:
+      type: object
+      properties:
+        currentPassword: { type: string }
+        newPassword: { type: string }
+      required: [currentPassword, newPassword]
+    SalonSettings:
+      type: object
+      properties:
+        name: { type: string }
+        whatsapp: { type: string }
+        address: { type: string }
+        instagram: { type: string }
+        about: { type: string }
+        salonSharePercent: { type: number }
+      required: [name, whatsapp, address, instagram, about, salonSharePercent]
+    AdminService:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        price: { type: number }
+        durationMinutes: { type: integer }
+        active: { type: boolean }
+      required: [id, name, price, durationMinutes, active]
+    ServiceInput:
+      type: object
+      properties:
+        name: { type: string }
+        price: { type: number }
+        durationMinutes: { type: integer }
+        active: { type: boolean }
+    AdminProfessional:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        initials: { type: string }
+        startsAt: { type: string }
+        endsAt: { type: string }
+        weekdays:
+          type: array
+          items: { type: integer }
+        active: { type: boolean }
+      required: [id, name, initials, startsAt, endsAt, weekdays, active]
+    ProfessionalInput:
+      type: object
+      properties:
+        name: { type: string }
+        initials: { type: string }
+        startsAt: { type: string }
+        endsAt: { type: string }
+        weekdays:
+          type: array
+          items: { type: integer }
+        active: { type: boolean }
+    StaffAccount:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        role:
+          type: string
+          enum: [professional, admin]
+        professionalId: { type: ["integer", "null"] }
+        active: { type: boolean }
+      required: [id, name, email, role, professionalId, active]
+    StaffAccountCreate:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        password: { type: string }
+        role:
+          type: string
+          enum: [professional, admin]
+        professionalId: { type: ["integer", "null"] }
+      required: [name, email, password, role]
+    StaffAccountUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string }
+        password: { type: string }
+        role:
+          type: string
+          enum: [professional, admin]
+        professionalId: { type: ["integer", "null"] }
+        active: { type: boolean }

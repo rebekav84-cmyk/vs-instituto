@@ -1,0 +1,19 @@
+# Publicação no Render (plano gratuito). Veja COMO-PUBLICAR.md.
+services:
+  - type: web
+    name: vs-instituto
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
